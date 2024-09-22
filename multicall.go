@@ -158,7 +158,7 @@ func Describe[T any](contractAddress common.Address, contractAbi abi.ABI, method
 	)
 }
 
-func Do[A any, B any](mc MulticallClient, a *MultiCallMetaData[A], b *MultiCallMetaData[B]) (*A, *B, error) {
+func Do[A any, B any](mc *MulticallClient, a *MultiCallMetaData[A], b *MultiCallMetaData[B]) (*A, *B, error) {
 	res, err := doMultiCallMany(mc, a.Raw(), b.Raw())
 	if err != nil {
 		return nil, nil, fmt.Errorf("error performing multicall: %s", err.Error())
@@ -166,7 +166,7 @@ func Do[A any, B any](mc MulticallClient, a *MultiCallMetaData[A], b *MultiCallM
 	return any(res[0].Value).(*A), any(res[1].Value).(*B), nil
 }
 
-func DoMany[A any](mc MulticallClient, requests ...*MultiCallMetaData[A]) (*[]*A, error) {
+func DoMany[A any](mc *MulticallClient, requests ...*MultiCallMetaData[A]) (*[]*A, error) {
 	res, err := doMultiCallMany(mc, mapCollection(requests, func(mc *MultiCallMetaData[A], index uint64) RawMulticall {
 		return mc.Raw()
 	})...)
@@ -214,7 +214,7 @@ func (mc *MulticallClient) GetBlockNumber() *MultiCallMetaData[big.Int] {
 
 ////////////////////////
 
-func DoManyAllowFailures[A any](mc MulticallClient, requests ...*MultiCallMetaData[A]) (*[]TypedMulticall3Result[A], error) {
+func DoManyAllowFailures[A any](mc *MulticallClient, requests ...*MultiCallMetaData[A]) (*[]TypedMulticall3Result[*A], error) {
 	res, err := doMultiCallMany(mc, mapCollection(requests, func(mc *MultiCallMetaData[A], index uint64) RawMulticall {
 		return mc.Raw()
 	})...)
@@ -223,16 +223,16 @@ func DoManyAllowFailures[A any](mc MulticallClient, requests ...*MultiCallMetaDa
 	}
 
 	// unwind results
-	unwoundResults := mapCollection(res, func(d DeserializedMulticall3Result, i uint64) TypedMulticall3Result[A] {
-		val, ok := any(d.Value).(A)
+	unwoundResults := mapCollection(res, func(d DeserializedMulticall3Result, i uint64) TypedMulticall3Result[*A] {
+		val, ok := any(d.Value).(*A)
 		if !ok {
-			return TypedMulticall3Result[A]{
+			return TypedMulticall3Result[*A]{
 				Value:   val,
 				Success: false,
 			}
 		}
 
-		return TypedMulticall3Result[A]{
+		return TypedMulticall3Result[*A]{
 			Value:   val,
 			Success: d.Success,
 		}
@@ -240,7 +240,7 @@ func DoManyAllowFailures[A any](mc MulticallClient, requests ...*MultiCallMetaDa
 	return &unwoundResults, nil
 }
 
-func doMultiCallMany(mc MulticallClient, calls ...RawMulticall) ([]DeserializedMulticall3Result, error) {
+func doMultiCallMany(mc *MulticallClient, calls ...RawMulticall) ([]DeserializedMulticall3Result, error) {
 	typedCalls := make([]ParamMulticall3Call3, len(calls))
 	for i, call := range calls {
 		typedCalls[i] = ParamMulticall3Call3{
