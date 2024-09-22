@@ -1,6 +1,6 @@
 # Multicall Client for Ethereum
 
-![Tests Passing](https://github.com/jbrower95/multicall-go/actions/workflows/tests.yaml/badge.svg)
+![Tests Passing](https://github.com/jbrower95/multicall-go/actions/workflows/tests.yaml/badge.svg) [![codecov](https://codecov.io/github/jbrower95/multicall-go/graph/badge.svg?token=STMZUE9X1C)](https://codecov.io/github/jbrower95/multicall-go)
 
 
 This package provides a Go implementation of the Ethereum [`Multicall3`](https://multicall3.com) contract, enabling efficient batched calls to on-chain contracts using the Ethereum JSON-RPC API. It simplifies making multiple contract read-only (view) calls in a single network request.
