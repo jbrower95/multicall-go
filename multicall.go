@@ -166,6 +166,38 @@ func Do[A any, B any](mc *MulticallClient, a *MultiCallMetaData[A], b *MultiCall
 	return any(res[0].Value).(*A), any(res[1].Value).(*B), nil
 }
 
+func Do3[A any, B any, C any](mc *MulticallClient, a *MultiCallMetaData[A], b *MultiCallMetaData[B], c *MultiCallMetaData[C]) (*A, *B, *C, error) {
+	res, err := doMultiCallMany(mc, a.Raw(), b.Raw(), c.Raw())
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("error performing multicall: %s", err.Error())
+	}
+	return any(res[0].Value).(*A), any(res[1].Value).(*B), any(res[2].Value).(*C), nil
+}
+
+func Do4[A any, B any, C any, D any](mc *MulticallClient, a *MultiCallMetaData[A], b *MultiCallMetaData[B], c *MultiCallMetaData[C], d *MultiCallMetaData[D]) (*A, *B, *C, *D, error) {
+	res, err := doMultiCallMany(mc, a.Raw(), b.Raw(), c.Raw(), d.Raw())
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("error performing multicall: %s", err.Error())
+	}
+	return any(res[0].Value).(*A), any(res[1].Value).(*B), any(res[2].Value).(*C), any(res[3].Value).(*D), nil
+}
+
+func Do5[A any, B any, C any, D any, E any](mc *MulticallClient, a *MultiCallMetaData[A], b *MultiCallMetaData[B], c *MultiCallMetaData[C], d *MultiCallMetaData[D], e *MultiCallMetaData[E]) (*A, *B, *C, *D, *E, error) {
+	res, err := doMultiCallMany(mc, a.Raw(), b.Raw(), c.Raw(), d.Raw(), e.Raw())
+	if err != nil {
+		return nil, nil, nil, nil, nil, fmt.Errorf("error performing multicall: %s", err.Error())
+	}
+	return any(res[0].Value).(*A), any(res[1].Value).(*B), any(res[2].Value).(*C), any(res[3].Value).(*D), any(res[4].Value).(*E), nil
+}
+
+func Do6[A any, B any, C any, D any, E any, F any](mc *MulticallClient, a *MultiCallMetaData[A], b *MultiCallMetaData[B], c *MultiCallMetaData[C], d *MultiCallMetaData[D], e *MultiCallMetaData[E], f *MultiCallMetaData[F]) (*A, *B, *C, *D, *E, *F, error) {
+	res, err := doMultiCallMany(mc, a.Raw(), b.Raw(), c.Raw(), d.Raw(), e.Raw(), f.Raw())
+	if err != nil {
+		return nil, nil, nil, nil, nil, nil, fmt.Errorf("error performing multicall: %s", err.Error())
+	}
+	return any(res[0].Value).(*A), any(res[1].Value).(*B), any(res[2].Value).(*C), any(res[3].Value).(*D), any(res[4].Value).(*E), any(res[5].Value).(*F), nil
+}
+
 func DoMany[A any](mc *MulticallClient, requests ...*MultiCallMetaData[A]) (*[]*A, error) {
 	res, err := doMultiCallMany(mc, mapCollection(requests, func(mc *MultiCallMetaData[A], index uint64) RawMulticall {
 		return mc.Raw()
