@@ -2,6 +2,7 @@
 
 ![Tests Passing](https://github.com/jbrower95/multicall-go/actions/workflows/tests.yaml/badge.svg)
 
+
 This package provides a Go implementation of the Ethereum [`Multicall3`](https://multicall3.com) contract, enabling efficient batched calls to on-chain contracts using the Ethereum JSON-RPC API. It simplifies making multiple contract read-only (view) calls in a single network request.
 
 ## Features
@@ -27,3 +28,16 @@ Install the Go package via:
 
 ```bash
 go get github.com/jbrower95/multicall-go
+```
+
+## Usage
+
+### Creating the Client
+
+### Performing two RPC calls at once
+
+### Performing list of RPC calls
+
+## Testing
+
+`go test` is run automatically in CI.
