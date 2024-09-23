@@ -266,14 +266,6 @@ func TestDoVariadiac(t *testing.T) {
 	assert.True(t, o6.Cmp(expectedOwner) == 0, "Got incorrect owner of token")
 }
 
-type Ilk struct {
-	Art  *big.Int
-	Rate *big.Int
-	Spot *big.Int
-	Line *big.Int
-	Dust *big.Int
-}
-
 func TestDoMany_Struct(t *testing.T) {
 	//  maker vat contract
 	client := setupClient(t)
