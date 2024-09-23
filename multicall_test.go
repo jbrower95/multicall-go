@@ -2,17 +2,19 @@ package multicall
 
 import (
 	"context"
+	"math"
 	"math/big"
 	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/assert"
 )
 
-const ethNodeURL = "https://rpc.ankr.com/eth"
+const ethNodeURL = "https://eth.drpc.org"
 
 func setupClient(t *testing.T) *ethclient.Client {
 	client, err := ethclient.Dial(ethNodeURL)
@@ -134,6 +136,10 @@ func TestMulticallCustomCall_2(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, ownerCall2)
 
+	badCall, err := Describe[common.Address](contractAddress, contractAbi, "ownerOf", big.NewInt(10000000000000))
+	assert.NoError(t, err)
+	assert.NotNil(t, badCall)
+
 	// Execute the custom call
 	owners, err := DoMany(multicallClient, ownerCall1, ownerCall2)
 	assert.NotNil(t, owners)
@@ -144,13 +150,11 @@ func TestMulticallCustomCall_2(t *testing.T) {
 	assert.NotNil(t, ownerTwo)
 	assert.True(t, ownerOne.Cmp(common.HexToAddress("0x9056D15C49B19dF52FfaD1E6C11627f035C0C960")) == 0, "Got incorrect owner of token 1")
 	assert.True(t, ownerTwo.Cmp(common.HexToAddress("0xAA87190076675dA8D3496Da24B0C3BbfA1e56396")) == 0, "Got incorrect owner of token 2")
-}
 
-func panicIfError[T any](val T, err error) T {
-	if err != nil {
-		panic(err)
-	}
-	return val
+	// test that DoMany fails if one call fails.
+	owners, err = DoMany(multicallClient, ownerCall1, ownerCall2, badCall)
+	assert.Nil(t, owners)
+	assert.Error(t, err)
 }
 
 func TestDoMany(t *testing.T) {
@@ -182,6 +186,33 @@ func TestDoMany(t *testing.T) {
 
 	assert.True(t, ownerOne.Cmp(common.HexToAddress("0x9056D15C49B19dF52FfaD1E6C11627f035C0C960")) == 0, "Got incorrect owner of token 1")
 	assert.True(t, ownerTwo.Cmp(common.HexToAddress("0xAA87190076675dA8D3496Da24B0C3BbfA1e56396")) == 0, "Got incorrect owner of token 2")
+}
+
+func TestGiganticMulticallFails(t *testing.T) {
+	t.Skip()
+
+	client := setupClient(t)
+	defer client.Close()
+
+	// Create multicall client
+	mc, err := NewMulticallClient(context.Background(), client, &TMulticallClientOptions{
+		MaxBatchSizeBytes: math.MaxUint64 - 1, // one big blob
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, mc)
+
+	contractAbi, _ := abi.JSON(strings.NewReader(`[{"constant":false,"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"approve","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"mint","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"safeTransferFrom","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"bytes","name":"_data","type":"bytes"}],"name":"safeTransferFrom","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"bool","name":"approved","type":"bool"}],"name":"setApprovalForAll","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"transferFrom","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"inputs":[],"payable":false,"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"approved","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":false,"internalType":"bool","name":"approved","type":"bool"}],"name":"ApprovalForAll","type":"event"},{"constant":true,"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getApproved","outputs":[{"internalType":"address","name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"operator","type":"address"}],"name":"isApprovedForAll","outputs":[{"internalType":"bool","name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"internalType":"address","name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"}]`))
+	contractAddress := common.HexToAddress("0x60E4d786628Fea6478F785A6d7e704777c86a7c6") // MAYC
+
+	numCalls := 5000
+	calls := make([]*MultiCallMetaData[common.Address], numCalls)
+	for i := range numCalls {
+		calls[i] = panicIfError(Describe[common.Address](contractAddress, contractAbi, "ownerOf", big.NewInt(0)))
+	}
+
+	res, err := DoMany(mc, calls...)
+	assert.Error(t, err)
+	assert.Nil(t, res)
 }
 
 func TestDoVariadiac(t *testing.T) {
@@ -233,6 +264,81 @@ func TestDoVariadiac(t *testing.T) {
 	assert.True(t, o4.Cmp(expectedOwner) == 0, "Got incorrect owner of token")
 	assert.True(t, o5.Cmp(expectedOwner) == 0, "Got incorrect owner of token")
 	assert.True(t, o6.Cmp(expectedOwner) == 0, "Got incorrect owner of token")
+}
+
+type Ilk struct {
+	Art  *big.Int
+	Rate *big.Int
+	Spot *big.Int
+	Line *big.Int
+	Dust *big.Int
+}
+
+func TestDoMany_Struct(t *testing.T) {
+	//  maker vat contract
+	client := setupClient(t)
+	defer client.Close()
+
+	// Create multicall client
+	mc, err := NewMulticallClient(context.Background(), client, nil)
+	eigenpodAbi, _ := EigenPodMetaData.GetAbi()
+	assert.NoError(t, err)
+	assert.NotNil(t, mc)
+
+	contractAddress := common.HexToAddress("0x525f092e2715d288afd0850aa18dd5d39a920264") // some example mainnet EigenPod.sol deployment
+
+	emptyPubKey := [48]byte{}
+	emptyPubKeyUntyped := emptyPubKey[:]
+
+	calls := []*MultiCallMetaData[IEigenPodValidatorInfo]{
+		panicIfError(Describe[IEigenPodValidatorInfo](contractAddress, *eigenpodAbi, "validatorPubkeyToInfo", emptyPubKeyUntyped)),
+		panicIfError(Describe[IEigenPodValidatorInfo](contractAddress, *eigenpodAbi, "validatorPubkeyToInfo", emptyPubKeyUntyped)),
+		panicIfError(Describe[IEigenPodValidatorInfo](contractAddress, *eigenpodAbi, "validatorPubkeyToInfo", emptyPubKeyUntyped)), //invalid
+	}
+
+	res, err := DoMany(mc, calls...)
+	assert.NoError(t, err)
+	assert.NotNil(t, res)
+
+	assert.Len(t, *res, 3)
+
+	assert.NotNil(t, (*res)[0])
+	assert.NotNil(t, (*res)[1])
+	assert.NotNil(t, (*res)[2])
+}
+
+func TestEdgeCases(t *testing.T) {
+	client := setupClient(t)
+	defer client.Close()
+
+	// initializing without an eth client fails.
+	mc, err := NewMulticallClient(context.Background(), nil, nil)
+	assert.Nil(t, mc)
+	assert.Error(t, err)
+
+	// initializing with an override address should work...
+	overrideAddr := common.HexToAddress("0x00")
+	callOpts := &bind.CallOpts{
+		BlockNumber: big.NewInt(0),
+	}
+
+	mc, err = NewMulticallClient(context.Background(), client, &TMulticallClientOptions{
+		OverrideContractAddress: &overrideAddr,
+		MaxBatchSizeBytes:       8192,
+		OverrideCallOptions:     callOpts,
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, mc)
+	assert.Equal(t, mc.OverrideCallOptions, callOpts)
+	assert.Equal(t, mc.Address, overrideAddr)
+
+	mc, err = NewMulticallClient(context.Background(), client, &TMulticallClientOptions{
+		OverrideContractAddress: &overrideAddr,
+		OverrideCallOptions:     callOpts,
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, mc)
+	assert.Greater(t, mc.MaxBatchSize, uint64(0)) // batch size should be greater than zero by default.
 }
 
 func TestDoManyAllowFailures(t *testing.T) {

@@ -5,7 +5,6 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
-	"math"
 	"math/big"
 	"strings"
 
@@ -81,6 +80,13 @@ type TMulticallClientOptions struct {
 	OverrideCallOptions     *bind.CallOpts
 }
 
+func panicIfError[T any](val T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+	return val
+}
+
 /**
  * Initializes a multicall client. You'll need one of these to make any calls.
  *	ctx: network context for operations
@@ -93,10 +99,7 @@ func NewMulticallClient(ctx context.Context, eth *ethclient.Client, options *TMu
 	}
 
 	// taken from: https://www.multicall3.com/
-	parsed, err := abi.JSON(strings.NewReader(multicallAbi))
-	if err != nil {
-		return nil, fmt.Errorf("error parsing multicall abi: %s", err.Error())
-	}
+	parsed := panicIfError(abi.JSON(strings.NewReader(multicallAbi)))
 
 	contractAddress := func() common.Address {
 		if options == nil || options.OverrideContractAddress == nil {
@@ -213,14 +216,11 @@ func DoMany[A any](mc *MulticallClient, requests ...*MultiCallMetaData[A]) (*[]*
 		return nil, errors.New("1 or more calls failed")
 	}
 
-	// unwind results
 	unwoundResults := mapCollection(res, func(d DeserializedMulticall3Result, i uint64) *A {
 		// force these back to A
-		if !d.Success {
-			panic(errors.New("unexpected multicall failure"))
-		}
 		return any(d.Value).(*A)
 	})
+
 	return &unwoundResults, nil
 }
 
@@ -283,13 +283,7 @@ func doMultiCallMany(mc *MulticallClient, calls ...RawMulticall) ([]Deserialized
 	}
 
 	// see if we need to chunk them now
-	chunkedCalls := chunkCalls(typedCalls, func() int {
-		if mc.MaxBatchSize == 0 {
-			return math.MaxInt64
-		} else {
-			return int(mc.MaxBatchSize)
-		}
-	}())
+	chunkedCalls := chunkCalls(typedCalls, int(mc.MaxBatchSize))
 	var results = make([]interface{}, len(calls))
 	var totalResults = 0
 
