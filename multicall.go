@@ -92,6 +92,7 @@ func panicIfError[T any](val T, err error) T {
  *	ctx: network context for operations
  *	eth: the geth client to use for interacting with your node
  *	options [optional]: additional options to specify when making your request.
+ *			- WARNING: these parameters take sceond precedence to any `overrideOptions` provided by the `Do*WithInfo()` functions.
  */
 func NewMulticallClient(ctx context.Context, eth *ethclient.Client, options *TMulticallClientOptions) (*MulticallClient, error) {
 	if eth == nil {
@@ -162,7 +163,7 @@ func Describe[T any](contractAddress common.Address, contractAbi abi.ABI, method
 }
 
 func Do[A any, B any](mc *MulticallClient, a *MultiCallMetaData[A], b *MultiCallMetaData[B]) (*A, *B, error) {
-	res, err := doMultiCallMany(mc, a.Raw(), b.Raw())
+	res, err := doMultiCallMany(mc, nil, a.Raw(), b.Raw())
 	if err != nil {
 		return nil, nil, fmt.Errorf("error performing multicall: %s", err.Error())
 	}
@@ -170,7 +171,7 @@ func Do[A any, B any](mc *MulticallClient, a *MultiCallMetaData[A], b *MultiCall
 }
 
 func Do3[A any, B any, C any](mc *MulticallClient, a *MultiCallMetaData[A], b *MultiCallMetaData[B], c *MultiCallMetaData[C]) (*A, *B, *C, error) {
-	res, err := doMultiCallMany(mc, a.Raw(), b.Raw(), c.Raw())
+	res, err := doMultiCallMany(mc, nil, a.Raw(), b.Raw(), c.Raw())
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("error performing multicall: %s", err.Error())
 	}
@@ -178,7 +179,7 @@ func Do3[A any, B any, C any](mc *MulticallClient, a *MultiCallMetaData[A], b *M
 }
 
 func Do4[A any, B any, C any, D any](mc *MulticallClient, a *MultiCallMetaData[A], b *MultiCallMetaData[B], c *MultiCallMetaData[C], d *MultiCallMetaData[D]) (*A, *B, *C, *D, error) {
-	res, err := doMultiCallMany(mc, a.Raw(), b.Raw(), c.Raw(), d.Raw())
+	res, err := doMultiCallMany(mc, nil, a.Raw(), b.Raw(), c.Raw(), d.Raw())
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("error performing multicall: %s", err.Error())
 	}
@@ -186,7 +187,7 @@ func Do4[A any, B any, C any, D any](mc *MulticallClient, a *MultiCallMetaData[A
 }
 
 func Do5[A any, B any, C any, D any, E any](mc *MulticallClient, a *MultiCallMetaData[A], b *MultiCallMetaData[B], c *MultiCallMetaData[C], d *MultiCallMetaData[D], e *MultiCallMetaData[E]) (*A, *B, *C, *D, *E, error) {
-	res, err := doMultiCallMany(mc, a.Raw(), b.Raw(), c.Raw(), d.Raw(), e.Raw())
+	res, err := doMultiCallMany(mc, nil, a.Raw(), b.Raw(), c.Raw(), d.Raw(), e.Raw())
 	if err != nil {
 		return nil, nil, nil, nil, nil, fmt.Errorf("error performing multicall: %s", err.Error())
 	}
@@ -194,7 +195,7 @@ func Do5[A any, B any, C any, D any, E any](mc *MulticallClient, a *MultiCallMet
 }
 
 func Do6[A any, B any, C any, D any, E any, F any](mc *MulticallClient, a *MultiCallMetaData[A], b *MultiCallMetaData[B], c *MultiCallMetaData[C], d *MultiCallMetaData[D], e *MultiCallMetaData[E], f *MultiCallMetaData[F]) (*A, *B, *C, *D, *E, *F, error) {
-	res, err := doMultiCallMany(mc, a.Raw(), b.Raw(), c.Raw(), d.Raw(), e.Raw(), f.Raw())
+	res, err := doMultiCallMany(mc, nil, a.Raw(), b.Raw(), c.Raw(), d.Raw(), e.Raw(), f.Raw())
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, fmt.Errorf("error performing multicall: %s", err.Error())
 	}
@@ -202,7 +203,11 @@ func Do6[A any, B any, C any, D any, E any, F any](mc *MulticallClient, a *Multi
 }
 
 func DoMany[A any](mc *MulticallClient, requests ...*MultiCallMetaData[A]) (*[]*A, error) {
-	res, err := doMultiCallMany(mc, mapCollection(requests, func(mc *MultiCallMetaData[A], index uint64) RawMulticall {
+	return DoManyWithOptions(mc, nil, requests...)
+}
+
+func DoManyWithOptions[A any](mc *MulticallClient, options *bind.CallOpts, requests ...*MultiCallMetaData[A]) (*[]*A, error) {
+	res, err := doMultiCallMany(mc, options, mapCollection(requests, func(mc *MultiCallMetaData[A], index uint64) RawMulticall {
 		return mc.Raw()
 	})...)
 	if err != nil {
@@ -244,10 +249,13 @@ func (mc *MulticallClient) GetBlockNumber() *MultiCallMetaData[big.Int] {
 	return call
 }
 
-////////////////////////
-
+// //////////////////////
 func DoManyAllowFailures[A any](mc *MulticallClient, requests ...*MultiCallMetaData[A]) (*[]TypedMulticall3Result[*A], error) {
-	res, err := doMultiCallMany(mc, mapCollection(requests, func(mc *MultiCallMetaData[A], index uint64) RawMulticall {
+	return DoManyAllowFailuresWithOptions(mc, nil, requests...)
+}
+
+func DoManyAllowFailuresWithOptions[A any](mc *MulticallClient, overrideOpts *bind.CallOpts, requests ...*MultiCallMetaData[A]) (*[]TypedMulticall3Result[*A], error) {
+	res, err := doMultiCallMany(mc, overrideOpts, mapCollection(requests, func(mc *MultiCallMetaData[A], index uint64) RawMulticall {
 		return mc.Raw()
 	})...)
 	if err != nil {
@@ -272,7 +280,7 @@ func DoManyAllowFailures[A any](mc *MulticallClient, requests ...*MultiCallMetaD
 	return &unwoundResults, nil
 }
 
-func doMultiCallMany(mc *MulticallClient, calls ...RawMulticall) ([]DeserializedMulticall3Result, error) {
+func doMultiCallMany(mc *MulticallClient, overrideOpts *bind.CallOpts, calls ...RawMulticall) ([]DeserializedMulticall3Result, error) {
 	typedCalls := make([]ParamMulticall3Call3, len(calls))
 	for i, call := range calls {
 		typedCalls[i] = ParamMulticall3Call3{
@@ -287,11 +295,21 @@ func doMultiCallMany(mc *MulticallClient, calls ...RawMulticall) ([]Deserialized
 	var results = make([]interface{}, len(calls))
 	var totalResults = 0
 
+	callOptions := func() *bind.CallOpts {
+		if overrideOpts != nil {
+			return overrideOpts
+		}
+		if mc.OverrideCallOptions != nil {
+			return mc.OverrideCallOptions
+		}
+		return nil
+	}()
+
 	chunkNumber := 1
 	for _, multicalls := range chunkedCalls {
 		var res []interface{}
 		chunkNumber++
-		err := mc.Contract.Call(mc.OverrideCallOptions, &res, "aggregate3", multicalls)
+		err := mc.Contract.Call(callOptions, &res, "aggregate3", multicalls)
 		if err != nil {
 			return nil, fmt.Errorf("aggregate3 failed: %s", err)
 		}
